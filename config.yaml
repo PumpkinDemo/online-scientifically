@@ -1,0 +1,329 @@
+proxies:
+  - name: "ss1"
+    type: ss
+    server: server
+    port: 443
+    cipher: chacha20-ietf-poly1305
+    password: "password"
+    # udp: true
+
+  - name: "ss2"
+    type: ss
+    server: server
+    port: 443
+    cipher: AEAD_CHACHA20_POLY1305
+    password: "password"
+    plugin: obfs
+    plugin-opts:
+      mode: tls # 混淆模式，可以选择 http 或 tls
+      host: bing.com # 混淆域名，需要和服务器配置保持一致
+
+  - name: "ss3"
+    type: ss
+    server: server
+    port: 443
+    cipher: AEAD_CHACHA20_POLY1305
+    password: "password"
+    plugin: v2ray-plugin
+    plugin-opts:
+      mode: websocket # 暂时不支持 QUIC 协议
+      # tls: true # wss
+      # skip-cert-verify: true
+      # host: bing.com
+      # path: "/"
+      # headers:
+      #   custom: value
+
+  # vmess
+  # 支持加密方式：auto / aes-128-gcm / chacha20-poly1305 / none
+  - name: "vmess"
+    type: vmess
+    server: server
+    port: 443
+    uuid: uuid
+    alterId: 32
+    cipher: auto
+    # udp: true
+    # tls: true
+    # skip-cert-verify: true
+    # servername: example.com # 优先级高于 wss host
+    # network: ws
+    # ws-path: /path
+    # ws-headers:
+    #   Host: v2ray.com
+
+  - name: "vmess-http"
+    type: vmess
+    server: server
+    port: 443
+    uuid: uuid
+    alterId: 32
+    cipher: auto
+    # udp: true
+    # network: http
+    # http-opts:
+    #   # method: "GET"
+    #   # path:
+    #   #   - '/'
+    #   #   - '/video'
+    #   # headers:
+    #   #   Connection:
+    #   #     - keep-alive
+
+  # socks5
+  - name: "socks"
+    type: socks5
+    server: server
+    port: 443
+    # username: username
+    # password: password
+    # tls: true
+    # skip-cert-verify: true
+    # udp: true
+
+  # http
+  - name: "http"
+    type: http
+    server: server
+    port: 443
+    # username: username
+    # password: password
+    # tls: true # https
+    # skip-cert-verify: true
+
+  # snell (注意：暂时不支持 UDP 转发)
+  - name: "snell"
+    type: snell
+    server: server
+    port: 44046
+    psk: yourpsk
+    # obfs-opts:
+    # mode: http # 或 tls
+    # host: bing.com
+
+  # Trojan
+  - name: "trojan"
+    type: trojan
+    server: server
+    port: 443
+    password: yourpsk
+    # udp: true
+    # sni: example.com # 服务名称
+    # alpn:
+    #   - h2
+    #   - http/1.1
+    # skip-cert-verify: true
+
+  # ShadowsocksR
+  # 支持的加密方式: SS 中支持的所有流加密方式
+  # 支持的混淆方式:
+  #   plain http_simple http_post
+  #   random_head tls1.2_ticket_auth tls1.2_ticket_fastauth
+  # 支持的协议:
+  #   origin auth_sha1_v4 auth_aes128_md5
+  #   auth_aes128_sha1 auth_chain_a auth_chain_b
+  - name: "ssr"
+    type: ssr
+    server: server
+    port: 443
+    cipher: chacha20-ietf
+    password: "password"
+    obfs: tls1.2_ticket_auth
+    protocol: auth_sha1_v4
+    # obfs-param: domain.tld
+    # protocol-param: "#"
+    # udp: true
+
+
+proxy-groups:
+  # 代理的转发链, 在 proxies 中不应该包含 relay. 不支持 UDP.
+  # 流量: clash <-> http <-> vmess <-> ss1 <-> ss2 <-> 互联网
+  - name: "relay"
+    type: relay
+    proxies:
+      - http
+      - vmess
+      - ss1
+      - ss2
+
+  # url-test 可以自动选择与指定 URL 测速后，延迟最短的服务器
+  - name: "auto"
+    type: url-test
+    proxies:
+      - ss1
+      - ss2
+      - vmess1
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+
+  # fallback 可以尽量按照用户书写的服务器顺序，在确保服务器可用的情况下，自动选择服务器
+  - name: "fallback-auto"
+    type: fallback
+    proxies:
+      - ss1
+      - ss2
+      - vmess1
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+
+  # load-balance 可以使相同 eTLD 请求在同一条代理线路上
+  - name: "load-balance"
+    type: load-balance
+    proxies:
+      - ss1
+      - ss2
+      - vmess1
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+
+  # select 用来允许用户手动选择 代理服务器 或 服务器组
+  # 您也可以使用 RESTful API 去切换服务器，这种方式推荐在 GUI 中使用
+  - name: Proxy
+    type: select
+    proxies:
+      - ss1
+      - ss2
+      - vmess1
+      - auto
+
+  - name: UseProvider
+    type: select
+    use:
+      - provider1
+    proxies:
+      - Proxy
+      - DIRECT
+
+
+# Port of HTTP(S) proxy server on the local end
+port: 10086
+# Port of SOCKS5 proxy server on the local end
+socks-port: 10087
+
+# RESTful web API listening address
+external-controller: 127.0.0.1:10088
+
+allow-lan: false
+
+# This is only applicable when `allow-lan` is `true`
+# '*': bind all IP addresses
+# 192.168.122.11: bind a single IPv4 address
+# "[aaaa::a8aa:ff:fe09:57d8]": bind a single IPv6 address
+bind-address: '*'
+
+# Clash router working mode
+# global / rule / direct
+mode: rule
+
+# Clash by default prints logs to STDOUT
+# info / warning / error / debug / silent
+log-level: info
+
+# When set to false, resolver won't translate hostnames to IPv6 addresses
+ipv6: false
+
+
+
+# A relative path to the configuration directory or an absolute path to a
+# directory in which you put some static web resource. Clash core will then
+# serve it at `http://{{external-controller}}/ui`.
+# external-ui: folder
+
+# Secret for the RESTful API (optional)
+# Authenticate by spedifying HTTP header `Authorization: Bearer ${secret}`
+# ALWAYS set a secret if RESTful API is listening on 0.0.0.0
+# secret: ""
+
+# Outbound interface name
+interface-name: en0
+
+profile:
+  # store the `select` results in $HOME/.cache
+  # when two different configurations have groups with the same name, the selected values are shared
+  # set false if you don't want this behavior
+  store-selected: false
+  # open tracing exporter API
+  tracing: true
+# Static hosts for DNS server and connection establishment (like /etc/hosts)
+#
+# Wildcard hostnames are supported (e.g. *.clash.dev, *.foo.*.example.com)
+# Non-wildcard domain names have a higher priority than wildcard domain names
+# e.g. foo.example.com > *.example.com > .example.com
+# P.S. +.foo.com equals to .foo.com and foo.com
+hosts:
+  # '*.clash.dev': 127.0.0.1
+  # '.dev': 127.0.0.1
+  # 'alpha.clash.dev': '::1'
+
+# DNS server settings
+# This section is optional. When not present, the DNS server will be disabled.
+
+rule-providers:
+  Apple-proxy:
+    type: file
+    behavior: classical
+    path: ./rules/apple-proxy
+  
+  Apple-direct:
+    type: file
+    behavior: classical
+    path: ./rules/apple-direct
+
+  Domestic:
+    type: file
+    behavior: classical
+    path: ./rules/domestic
+
+  Overseas:
+    type: file
+    behavior: classical
+    path: ./rules/overseas
+
+  Ad-block:
+    type: file
+    behavior: classical
+    path: ./rules/ad-block
+
+  Anti-DNS-pollution:
+    type: file
+    behavior: classical
+    path: ./rules/anti-DNS-pollution
+
+  Telegram:
+    type: file
+    behavior: classical
+    path: ./rules/telegram
+
+
+rules:
+  - RULE-SET, Apple-direct,       DIRECT
+  - RULE-SET, Apple-proxy,        Proxy
+  - RULE-SET, Domestic,           DIRECT
+  - RULE-SET, Overseas,           Proxy
+  - RULE-SET, Ad-block,           REJECT
+  - RULE-SET, Anti-DNS-pollution, Proxy
+  - RULE-SET, Telegram,           Proxy
+  # 自定义规则
+  ## 您可以在此处插入您补充的自定义规则（请注意保持缩进）
+
+  # Apple
+  - DOMAIN, safebrowsing.urlsec.qq.com,   DIRECT # 如果您并不信任此服务提供商或防止其下载消耗过多带宽资源，可以进入 Safari 设置，关闭 Fraudulent Website Warning 功能，并使用 REJECT 策略。
+  - DOMAIN, safebrowsing.googleapis.com,  DIRECT # 如果您并不信任此服务提供商或防止其下载消耗过多带宽资源，可以进入 Safari 设置，关闭 Fraudulent Website Warning 功能，并使用 REJECT 策略。
+  # - DOMAIN,e.crashlytics.com,REJECT //注释此选项有助于大多数App开发者分析崩溃信息；如果您拒绝一切崩溃数据统计、搜集，请取消 # 注释。
+
+  # LAN
+  - DOMAIN,         injections.adguard.org, DIRECT
+  - DOMAIN,         local.adguard.org,      DIRECT
+  - DOMAIN-SUFFIX,  local,                  DIRECT
+  - IP-CIDR,        127.0.0.0/8,            DIRECT
+  - IP-CIDR,        172.16.0.0/12,          DIRECT
+  - IP-CIDR,        192.168.0.0/16,         DIRECT
+  - IP-CIDR,        10.0.0.0/8,             DIRECT
+  - IP-CIDR,        17.0.0.0/8,             DIRECT
+  - IP-CIDR,        100.64.0.0/10,          DIRECT
+  - IP-CIDR,        224.0.0.0/4,            DIRECT
+  - IP-CIDR6,       fe80::/10,              DIRECT
+
+  # 最终规则
+  - GEOIP, CN, DIRECT
+  - MATCH, auto
