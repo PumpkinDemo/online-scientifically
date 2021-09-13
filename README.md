@@ -1,3 +1,3 @@
 # online-scientifically
 
-ClashX-pro config template
+some routing rules
